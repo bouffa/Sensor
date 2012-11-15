@@ -36,6 +36,7 @@
 #define XN_SENSOR_6_0_1_PRODUCT_ID      0x0601
 #define XN_SENSOR_MSK_VENDOR_ID   0x045E
 #define XN_SENSOR_MSK_PRODUCT_ID  0x02AE
+#define XN_SENSOR_MSK4W_PRODUCT_ID  0x02BF
 
 //---------------------------------------------------------------------------
 // Enums
@@ -174,14 +175,20 @@ XnStatus XnSensorIO::OpenDataEndPoints(XnSensorUsbInterface nInterface, const Xn
 		bNewUSB = FALSE;
 		xnLogVerbose(XN_MASK_DEVICE_IO, "Endpoint 0x81 does not exist. Trying old USB: Opening 0x82 for depth...");
 		nRetVal = xnUSBOpenEndPoint(m_pSensorHandle->USBDevice, 0x82, XN_USB_EP_BULK, XN_USB_DIRECTION_IN, &m_pSensorHandle->DepthConnection.UsbEp);
-		XN_IS_STATUS_OK(nRetVal);
+		//XN_IS_STATUS_OK(nRetVal);
 	}
-	else
+	if(nRetVal != XN_STATUS_OK)
 	{
-		if (nRetVal == XN_STATUS_USB_WRONG_ENDPOINT_TYPE)
+		if (nRetVal == XN_STATUS_USB_WRONG_ENDPOINT_TYPE || nRetVal == XN_STATUS_USB_ENDPOINT_NOT_FOUND)
 		{
 			nRetVal = xnUSBOpenEndPoint(m_pSensorHandle->USBDevice, 0x81, XN_USB_EP_ISOCHRONOUS, XN_USB_DIRECTION_IN, &m_pSensorHandle->DepthConnection.UsbEp);
-
+			if (nRetVal == XN_STATUS_USB_ENDPOINT_NOT_FOUND)
+			{
+				nRetVal = xnUSBSetInterface(m_pSensorHandle->USBDevice, 0, 1);
+				XN_IS_STATUS_OK(nRetVal);
+				nRetVal = xnUSBOpenEndPoint(m_pSensorHandle->USBDevice, 0x81, XN_USB_EP_ISOCHRONOUS, XN_USB_DIRECTION_IN, &m_pSensorHandle->DepthConnection.UsbEp);
+				XN_IS_STATUS_OK(nRetVal);
+			}
 			m_pSensorHandle->DepthConnection.bIsISO = TRUE;
 		}
 
@@ -402,6 +409,10 @@ XnStatus XnSensorIO::EnumerateSensors(XnConnectionString* aConnectionStrings, Xn
 
 	// search for a MSK device
 	nRetVal = Enumerate(XN_SENSOR_MSK_VENDOR_ID, XN_SENSOR_MSK_PRODUCT_ID, devicesSet);
+	XN_IS_STATUS_OK(nRetVal);
+
+	// search for a MSK4W device
+	nRetVal = Enumerate(XN_SENSOR_MSK_VENDOR_ID, XN_SENSOR_MSK4W_PRODUCT_ID, devicesSet);
 	XN_IS_STATUS_OK(nRetVal);
 
 	// search for a v6.0.1 device
